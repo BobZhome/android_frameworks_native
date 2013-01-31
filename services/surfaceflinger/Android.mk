@@ -38,6 +38,10 @@ ifeq ($(TARGET_DISABLE_TRIPLE_BUFFERING),true)
 	LOCAL_CFLAGS += -DTARGET_DISABLE_TRIPLE_BUFFERING
 endif
 
+ifeq ($(BOARD_EGL_NEEDS_LEGACY_FB),true)
+	LOCAL_CFLAGS += -DBOARD_EGL_NEEDS_LEGACY_FB
+endif
+
 ifneq ($(NUM_FRAMEBUFFER_SURFACE_BUFFERS),)
   LOCAL_CFLAGS += -DNUM_FRAMEBUFFER_SURFACE_BUFFERS=$(NUM_FRAMEBUFFER_SURFACE_BUFFERS)
 endif
@@ -56,6 +60,14 @@ LOCAL_SHARED_LIBRARIES := \
 	libbinder \
 	libui \
 	libgui
+
+ifeq ($(BOARD_USES_SAMSUNG_HDMI),true)
+        LOCAL_CFLAGS += -DSAMSUNG_HDMI_SUPPORT
+        LOCAL_SHARED_LIBRARIES += libTVOut libhdmiclient
+        LOCAL_C_INCLUDES += hardware/samsung/$(TARGET_BOARD_PLATFORM)/libhdmi/libhdmiservice
+        LOCAL_C_INCLUDES += hardware/samsung/$(TARGET_BOARD_PLATFORM)/include
+endif
+
 
 LOCAL_MODULE:= libsurfaceflinger
 

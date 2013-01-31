@@ -68,6 +68,9 @@
 #include "DisplayHardware/GraphicBufferAlloc.h"
 #include "DisplayHardware/HWComposer.h"
 
+#ifdef SAMSUNG_HDMI_SUPPORT
+#include "SecTVOutService.h"
+#endif
 
 #define EGL_VERSION_HW_ANDROID  0x3143
 
@@ -127,6 +130,16 @@ SurfaceFlinger::SurfaceFlinger()
     ALOGI_IF(mDebugRegion, "showupdates enabled");
     ALOGI_IF(mDebugDDMS, "DDMS debugging enabled");
     ALOGI_IF(mUseDithering, "use dithering");
+
+#ifdef SAMSUNG_HDMI_SUPPORT
+    ALOGD(">>> Run service");
+    android::SecTVOutService::instantiate();
+#if defined(SAMSUNG_EXYNOS5250)
+    mHdmiClient = SecHdmiClient::getInstance();
+    mHdmiClient->setHdmiEnable(1);
+#endif
+#endif
+
 }
 
 void SurfaceFlinger::onFirstRef()
@@ -134,7 +147,6 @@ void SurfaceFlinger::onFirstRef()
     mEventQueue.init(this);
 
     run("SurfaceFlinger", PRIORITY_URGENT_DISPLAY);
-
     // Wait for the main thread to be done with its initialization
     mReadyToRunBarrier.wait();
 }
@@ -676,10 +688,21 @@ status_t SurfaceFlinger::getDisplayInfo(const sp<IBinder>& display, DisplayInfo*
         info->orientation = 0;
     }
 
-    info->w = hwc.getWidth(type);
-    info->h = hwc.getHeight(type);
-    info->xdpi = xdpi;
-    info->ydpi = ydpi;
+    char value[PROPERTY_VALUE_MAX];
+    property_get("ro.sf.hwrotation", value, "0");
+    int additionalRot = atoi(value) / 90;
+    if ((type == DisplayDevice::DISPLAY_PRIMARY) && (additionalRot & DisplayState::eOrientationSwapMask)) {
+        info->h = hwc.getWidth(type);
+        info->w = hwc.getHeight(type);
+        info->xdpi = ydpi;
+        info->ydpi = xdpi;
+    }
+    else {
+        info->w = hwc.getWidth(type);
+        info->h = hwc.getHeight(type);
+        info->xdpi = xdpi;
+        info->ydpi = ydpi;
+    }
     info->fps = float(1e9 / hwc.getRefreshPeriod(type));
 
     // All non-virtual displays are currently considered secure.
@@ -1564,6 +1587,9 @@ void SurfaceFlinger::doComposeSurfaces(const sp<const DisplayDevice>& hw, const 
                         layer->draw(hw, clip);
                         break;
                     }
+                    case HWC_BLIT:
+                        //Do nothing
+                        break;
                     case HWC_FRAMEBUFFER_TARGET: {
                         // this should not happen as the iterator shouldn't
                         // let us get there.
